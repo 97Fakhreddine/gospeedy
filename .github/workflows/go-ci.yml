@@ -43,7 +43,7 @@ jobs:
 
       # Optionally, upload the built binary as an artifact (for later use or download)
       - name: Upload built CLI as artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: gospeedy-cli
           path: gospeedy-cli
