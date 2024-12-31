@@ -1,0 +1,118 @@
+name: Go CLI CI/CD
+
+on:
+  push:
+    branches:
+      - v1  # Trigger on push to v1 branch (main branch)
+  pull_request:
+    branches:
+      - v1
+
+jobs:
+  build:
+    name: Build CLI Tool
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the code
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Set up Go environment
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.20'  # Change the Go version if needed
+
+      # Cache Go dependencies to speed up builds
+      - name: Cache Go modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # Install dependencies
+      - name: Install dependencies
+        run: go mod tidy
+
+      # Build the CLI tool
+      - name: Build the CLI
+        run: go build -o gospeedy-cli .
+
+      # Run tests
+      - name: Run Tests
+        run: go test -v ./...
+
+      # Upload artifacts (optional, for storing the built CLI binary)
+      - name: Upload CLI binary as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: gospeedy-cli
+          path: gospeedy-cli
+
+  release:
+    name: Publish to GitHub Releases
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      # Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Set up Go
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.20'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: go mod tidy
+
+      # Build CLI tool for release
+      - name: Build CLI for release
+        run: go build -o gospeedy-cli .
+
+      # Create a new GitHub release
+      - name: Create GitHub Release
+        uses: gh action `create-release@v1`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v1.0.0
+          release_name: v1.0.0
+          body: |
+            - First public release of gospeedy-cli.
+            - Download the CLI tool below.
+
+      # Upload the CLI binary to the GitHub release
+      - name: Upload binary to GitHub Release
+        uses: gh action `upload-release-asset@v1`
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: ./gospeedy-cli
+          asset_name: gospeedy-cli-linux-amd64
+          asset_content_type: application/octet-stream
+
+  homebrew:
+    name: Publish to Homebrew (optional)
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Create Homebrew Formula
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh
+          brew tap 97Fakhreddine/gospeedy
+          brew install gospeedy-cli
+
+      # Optional: Publish Homebrew formula
+      # Publish the formula to Homebrew if you want to automatically distribute via Homebrew.
+      # Uncomment and configure this step if desired.
+      # - name: Publish Homebrew formula
+      #   run: brew tap 97Fakhreddine/gospeedy https://github.com/97Fakhreddine/gospeedy-cli
